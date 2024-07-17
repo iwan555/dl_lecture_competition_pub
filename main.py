@@ -10,7 +10,7 @@ from termcolor import cprint
 from tqdm import tqdm
 
 from src.datasets import ThingsMEGDataset
-from src.models import BasicConvClassifier
+from src.models import BasicConvClassifier_256_L4
 from src.utils import set_seed
 
 
@@ -39,7 +39,7 @@ def run(args: DictConfig):
     # ------------------
     #       Model
     # ------------------
-    model = BasicConvClassifier(
+    model = BasicConvClassifier_256_L4(
         train_set.num_classes, train_set.seq_len, train_set.num_channels
     ).to(args.device)
 
@@ -48,6 +48,12 @@ def run(args: DictConfig):
     # ------------------
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
+    scheduler = torch.optim.lr_scheduler.CyclicLR(
+        optimizer, base_lr=1e-5, max_lr=1e-3, step_size_up=20, mode='triangular',
+        cycle_momentum = False
+        )
+    
+    
     # ------------------
     #   Start training
     # ------------------  
@@ -67,12 +73,16 @@ def run(args: DictConfig):
 
             y_pred = model(X)
             
+            # print('xsize',X.size())
+            # print('ysize',y.size())
+            # print('y_pred_size',y_pred.size())
             loss = F.cross_entropy(y_pred, y)
             train_loss.append(loss.item())
             
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()    ######
             
             acc = accuracy(y_pred, y)
             train_acc.append(acc.item())
